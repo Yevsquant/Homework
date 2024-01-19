@@ -93,6 +93,11 @@ shift_image = lib.shift_image
 shift_image.argtypes = [IMAGE, c_int, c_float]
 shift_image.restype = None
 
+# extra credit fow hw1
+scale_image = lib.scale_image
+scale_image.argtypes = [IMAGE, c_int, c_float]
+scale_image.restype = None
+
 load_image_lib = lib.load_image
 load_image_lib.argtypes = [c_char_p]
 load_image_lib.restype = IMAGE
