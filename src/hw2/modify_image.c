@@ -19,7 +19,14 @@ float nn_interpolate(image im, float x, float y, int c)
       given a floating column value "x", row value "y" and integer channel "c",
       and returns the interpolated value.
     ************************************************************************/
-    return 0;
+    int x_ = round(x);
+    int y_ = round(y);
+    if (x_ < 0) x_ = 0;
+    if (x_ >= im.w) x_ = im.w - 1;
+    if (y_ < 0) y_ = 0;
+    if (y_ >= im.h) y_ = im.h - 1;
+    return get_pixel(im, x_, y_, c);
+    
 }
 
 image nn_resize(image im, int w, int h)
@@ -29,7 +36,21 @@ image nn_resize(image im, int w, int h)
       This function uses nearest-neighbor interpolation on image "im" to a new
       image of size "w x h"
     ************************************************************************/
-    return make_image(1,1,1);
+    float a_x = im.w * 1.0 / w;
+    float a_y = im.h * 1.0 / h;
+    float b_x = (im.w - w) * 1.0 / 2 / w;
+    float b_y = (im.h - h) * 1.0 / 2 / h;
+    image res_im = make_image(w, h, im.c);
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < h; j ++) {
+        for (int k = 0; k < w; k ++) {
+          int pos = w * h * i + w * j + k;
+          float x_ = k * a_x + b_x, y_ = j * a_y + b_y;
+          res_im.data[pos] = nn_interpolate(im, x_, y_, i);
+        }
+      }
+    }
+    return res_im;
 }
 
 float bilinear_interpolate(image im, float x, float y, int c)
@@ -40,7 +61,20 @@ float bilinear_interpolate(image im, float x, float y, int c)
       a floating column value "x", row value "y" and integer channel "c".
       It interpolates and returns the interpolated value.
     ************************************************************************/
-    return 0;
+    int low_x = floor(x);
+    int low_y = floor(y);
+    int up_x = ceil(x);
+    int up_y = ceil(y);
+    float a1 = (up_x - x) * (up_y - y);
+    float a2 = (x - low_x) * (up_y - y);
+    float a3 = (up_x - x) * (y - low_y);
+    float a4 = (x - low_x) * (y - low_y);
+    float v1 = get_pixel(im, low_x, low_y, c);
+    float v2 = get_pixel(im, up_x, low_y, c);
+    float v3 = get_pixel(im, low_x, up_y, c);
+    float v4 = get_pixel(im, up_x, up_y, c);
+
+    return v1 * a1 + v2 * a2 + v3 * a3 + v4 * a4;
 }
 
 image bilinear_resize(image im, int w, int h)
@@ -50,7 +84,21 @@ image bilinear_resize(image im, int w, int h)
       This function uses bilinear interpolation on image "im" to a new image
       of size "w x h". Algorithm is same as nearest-neighbor interpolation.
     ************************************************************************/
-    return make_image(1,1,1);
+    float a_x = im.w * 1.0 / w;
+    float a_y = im.h * 1.0 / h;
+    float b_x = (im.w - w) * 1.0 / 2 / w;
+    float b_y = (im.h - h) * 1.0 / 2 / h;
+    image res_im = make_image(w, h, im.c);
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < h; j ++) {
+        for (int k = 0; k < w; k ++) {
+          int pos = w * h * i + w * j + k;
+          float x_ = k * a_x + b_x, y_ = j * a_y + b_y;
+          res_im.data[pos] = bilinear_interpolate(im, x_, y_, i);
+        }
+      }
+    }
+    return res_im;
 }
 
 
@@ -65,6 +113,23 @@ void l1_normalize(image im)
       This function divides each value in image "im" by the sum of all the
       values in the image and modifies the image in place.
     ************************************************************************/
+    float s = 0.0;
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        for (int k = 0; k < im.w; k ++) {
+          s += get_pixel(im, k, j, i);
+        }
+      }
+    }
+
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        for (int k = 0; k < im.w; k ++) {
+          float t = get_pixel(im, k, j, i) / s;
+          set_pixel(im, k, j, i, t);
+        }
+      }
+    }
 }
 
 image make_box_filter(int w)
