@@ -122,6 +122,8 @@ void l1_normalize(image im)
       }
     }
 
+    if (s < 1e-6) return;
+
     for (int i = 0; i < im.c; i ++) {
       for (int j = 0; j < im.h; j ++) {
         for (int k = 0; k < im.w; k ++) {
@@ -140,7 +142,14 @@ image make_box_filter(int w)
       width = height = w and number of channels = 1, with all entries equal
       to 1. Then use "l1_normalize" to normalize your filter.
     ************************************************************************/
-    return make_image(1,1,1);
+    image im = make_image(w,w,1);
+    for (int i = 0; i < im.w; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        set_pixel(im, i, j, 0, 1.0);
+      }
+    }
+    l1_normalize(im);
+    return im;
 }
 
 image convolve_image(image im, image filter, int preserve)
@@ -151,7 +160,31 @@ image convolve_image(image im, image filter, int preserve)
       of preserve is 1 if the number of input image channels need to be 
       preserved. Check the detailed algorithm given in the README.  
     ************************************************************************/
-    return make_image(1,1,1);
+    assert(im.c == filter.c || filter.c == 1);
+    image res = make_image(im.w, im.h, preserve ? im.c : 1);
+    int x_center = filter.w / 2;
+    int y_center = filter.h / 2;
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        for (int k = 0; k < im.w; k ++) {
+          float q = 0.0;
+          for (int fy = 0; fy < filter.h; fy ++) {
+            for (int fx = 0; fx < filter.w; fx ++) {
+              int fc = im.c == filter.c ? i : 0;
+              float ival = get_pixel(im, k-x_center+fx, j-y_center+fy, i);
+              float fval = get_pixel(filter, fx, fy, fc);
+              q += ival * fval;
+            }
+          }
+          if (preserve) set_pixel(res, k, j, i, q);
+          else {
+            float original = !i ? 0.0 : get_pixel(res, k, j, 0);
+            set_pixel(res, k, j, 0, original+q);
+          }
+        }
+      }
+    }
+    return res;
 }
 
 image make_highpass_filter()
@@ -160,7 +193,15 @@ image make_highpass_filter()
     /***********************************************************************
       Create a 3x3 filter with highpass filter values using image.data[]
     ************************************************************************/
-    return make_image(1,1,1);
+    image filter = make_image(3,3,1);
+    float a[] = {0, -1, 0, -1, 4, -1, 0, -1, 0};
+    int cnt = 0;
+    for (int i = 0; i < filter.w; i ++) {
+      for (int j = 0; j < filter.h; j ++) {
+        set_pixel(filter, i, j, 0, a[cnt++]);
+      }
+    }
+    return filter;
 }
 
 image make_sharpen_filter()
@@ -169,7 +210,15 @@ image make_sharpen_filter()
     /***********************************************************************
       Create a 3x3 filter with sharpen filter values using image.data[]
     ************************************************************************/
-    return make_image(1,1,1);
+    image filter = make_image(3,3,1);
+    float a[] = {0, -1, 0, -1, 5, -1, 0, -1, 0};
+    int cnt = 0;
+    for (int i = 0; i < filter.w; i ++) {
+      for (int j = 0; j < filter.h; j ++) {
+        set_pixel(filter, i, j, 0, a[cnt++]);
+      }
+    }
+    return filter;
 }
 
 image make_emboss_filter()
@@ -178,7 +227,15 @@ image make_emboss_filter()
     /***********************************************************************
       Create a 3x3 filter with emboss filter values using image.data[]
     ************************************************************************/
-    return make_image(1,1,1);
+    image filter = make_image(3,3,1);
+    float a[] = {-2, -1, 0, -1, 1, 1, 0, 1, 2};
+    int cnt = 0;
+    for (int i = 0; i < filter.w; i ++) {
+      for (int j = 0; j < filter.h; j ++) {
+        set_pixel(filter, i, j, 0, a[cnt++]);
+      }
+    }
+    return filter;
 }
 
 // Question 2.3.1: Which of these filters should we use preserve when we run our convolution and which ones should we not? Why?
@@ -195,7 +252,20 @@ image make_gaussian_filter(float sigma)
       Create a Gaussian filter with the given sigma. Note that the kernel size 
       is the next highest odd integer from 6 x sigma. Return the Gaussian filter.
     ************************************************************************/
-    return make_image(1,1,1);
+    int w = 6 * sigma;
+    w = w % 2 ? w : w + 1;
+    image filter = make_image(w, w, 1);
+    for (int i = 0; i < w; i ++) {
+      for (int j = 0; j < w; j ++) {
+        float x = i - w/2;
+        float y = j - w/2;
+        float a = 1.0 / (TWOPI * sigma * sigma);
+        float b = exp(-(x*x+y*y)/(2*sigma*sigma));
+        set_pixel(filter, i, j, 0, a*b);
+      }
+    }
+    l1_normalize(filter);
+    return filter;
 }
 
 image add_image(image a, image b)
@@ -206,7 +276,17 @@ image add_image(image a, image b)
       Sum the given two images and return the result, which should also have
       the same height, width, and channels as the inputs. Do necessary checks.
     ************************************************************************/
-    return make_image(1,1,1);
+    image im = make_image(a.w, a.h, a.c);
+    for (int i = 0; i < a.c; i ++) {
+      for (int j = 0; j < a.h; j ++) {
+        for (int k = 0; k < a.w; k ++) {
+          float a_val = get_pixel(a, k, j, i);
+          float b_val = get_pixel(b, k, j, i);
+          set_pixel(im, k, j, i, a_val + b_val);
+        }
+      }
+    }
+    return im;
 }
 
 image sub_image(image a, image b)
@@ -217,7 +297,17 @@ image sub_image(image a, image b)
       Subtract the given two images and return the result, which should have
       the same height, width, and channels as the inputs. Do necessary checks.
     ************************************************************************/
-    return make_image(1,1,1);
+    image im = make_image(a.w, a.h, a.c);
+    for (int i = 0; i < a.c; i ++) {
+      for (int j = 0; j < a.h; j ++) {
+        for (int k = 0; k < a.w; k ++) {
+          float a_val = get_pixel(a, k, j, i);
+          float b_val = get_pixel(b, k, j, i);
+          set_pixel(im, k, j, i, a_val - b_val);
+        }
+      }
+    }
+    return im;
 }
 
 image make_gx_filter()
@@ -226,7 +316,15 @@ image make_gx_filter()
     /***********************************************************************
       Create a 3x3 Sobel Gx filter and return it
     ************************************************************************/
-    return make_image(1,1,1);
+    image filter = make_image(3,3,1);
+    float a[] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
+    int cnt = 0;
+    for (int i = 0; i < filter.w; i ++) {
+      for (int j = 0; j < filter.h; j ++) {
+        set_pixel(filter, i, j, 0, a[cnt++]);
+      }
+    }
+    return filter;
 }
 
 image make_gy_filter()
@@ -235,7 +333,15 @@ image make_gy_filter()
     /***********************************************************************
       Create a 3x3 Sobel Gy filter and return it
     ************************************************************************/
-    return make_image(1,1,1);
+    image filter = make_image(3,3,1);
+    float a[] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
+    int cnt = 0;
+    for (int i = 0; i < filter.w; i ++) {
+      for (int j = 0; j < filter.h; j ++) {
+        set_pixel(filter, i, j, 0, a[cnt++]);
+      }
+    }
+    return filter;
 }
 
 void feature_normalize(image im)
@@ -245,6 +351,27 @@ void feature_normalize(image im)
       Calculate minimum and maximum pixel values. Normalize the image by
       subtracting the minimum and dividing by the max-min difference.
     ************************************************************************/
+    float min_val = get_pixel(im, 0, 0, 0);
+    float max_val = get_pixel(im, 0, 0, 0);
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        for (int k = 0; k < im.w; k ++) {
+          float t = get_pixel(im, k, j, i);
+          if (min_val > t) min_val = t;
+          if (max_val < t) max_val = t;
+        }
+      }
+    }
+
+    for (int i = 0; i < im.c; i ++) {
+      for (int j = 0; j < im.h; j ++) {
+        for (int k = 0; k < im.w; k ++) {
+          float v = (get_pixel(im, k, j, i) - min_val) / (max_val - min_val);
+          set_pixel(im, k, j, i, v);
+        }
+      }
+    }
+
 }
 
 image *sobel_image(image im)
@@ -255,6 +382,28 @@ image *sobel_image(image im)
       and gradient as sobelimg[1], and return the result.
     ************************************************************************/
     image *sobelimg = calloc(2, sizeof(image));
+    image gx = make_gx_filter();
+    image gy = make_gy_filter();
+    image gx_im = convolve_image(im, gx, 0);
+    image gy_im = convolve_image(im, gy, 0);
+
+    image mag = make_image(im.w, im.h, 1);
+    image dir = make_image(im.w, im.h, 1);
+    for (int i = 0; i < im.h; i ++) {
+      for (int j = 0; j < im.w; j ++) {
+        float x = get_pixel(gx_im, j, i, 0);
+        float y = get_pixel(gy_im, j, i, 0);
+        set_pixel(mag, j, i, 0, sqrt(x*x + y*y));
+        set_pixel(dir, j, i, 0, atan2(x, y));
+      }
+    }
+    sobelimg[0] = mag;
+    sobelimg[1] = dir;
+
+    free_image(gx);
+    free_image(gy);
+    free_image(gx_im);
+    free_image(gy_im);
     return sobelimg;
 }
 
@@ -265,7 +414,26 @@ image colorize_sobel(image im)
     Create a colorized version of the edges in image "im" using the 
     algorithm described in the README.
   ************************************************************************/
-  return make_image(1,1,1);
+  image* sobelimg = sobel_image(im);
+  image mag = sobelimg[0];
+  image dir = sobelimg[1];
+
+  feature_normalize(mag);
+  feature_normalize(dir);
+
+  image res = make_image(im.w, im.h, 3);
+  for (int i = 0; i < im.h; i ++) {
+    for (int j = 0; j < im.w; j ++) {
+      float m = get_pixel(mag, j, i, 0);
+      float d = get_pixel(dir, j, i, 0);
+      set_pixel(res, j, i, 0, d);
+      set_pixel(res, j, i, 1, m);
+      set_pixel(res, j, i, 2, m);
+    }
+  }
+
+  hsv_to_rgb(res);
+  return res;
 }
 
 // EXTRA CREDIT: Median filter
