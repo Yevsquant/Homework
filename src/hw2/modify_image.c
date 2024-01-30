@@ -240,9 +240,21 @@ image make_emboss_filter()
 
 // Question 2.3.1: Which of these filters should we use preserve when we run our convolution and which ones should we not? Why?
 // Answer: TODO
+/*
+We should use preserve for the sharpen filter and the emboss filter. This is because the sharpen filter sharpens edges and lines
+in an image, but we still want to see colors. The emboss filter is used to emphasize the difference of intensity neibouring pixels.
+Therefore, 3 channels are needed for these two filters.
+We do not use preserve for the highpass filter. This is because the highpass filter is used to detect and find edges in an image.
+So, colors are not required. Also, as we notes that the for neibouring pixels with the same colors, they would result zero(black)
+through the highpass filter, so one channel is enough.
+*/
 
 // Question 2.3.2: Do we have to do any post-processing for the above filters? Which ones and why?
 // Answer: TODO
+/*
+The sharpen filter and the emboss filter require post-processing. This is because after we process covolution with these two filters,
+some pixels might be overflowed in value, which results in imcompatible colors with neibouring pixels.
+*/
 
 image make_gaussian_filter(float sigma)
 {
