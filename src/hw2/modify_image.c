@@ -331,9 +331,9 @@ image make_gx_filter()
     image filter = make_image(3,3,1);
     float a[] = {-1, 0, 1, -2, 0, 2, -1, 0, 1};
     int cnt = 0;
-    for (int i = 0; i < filter.w; i ++) {
-      for (int j = 0; j < filter.h; j ++) {
-        set_pixel(filter, i, j, 0, a[cnt++]);
+    for (int i = 0; i < filter.h; i ++) {
+      for (int j = 0; j < filter.w; j ++) {
+        set_pixel(filter, j, i, 0, a[cnt++]);
       }
     }
     return filter;
@@ -348,9 +348,9 @@ image make_gy_filter()
     image filter = make_image(3,3,1);
     float a[] = {-1, -2, -1, 0, 0, 0, 1, 2, 1};
     int cnt = 0;
-    for (int i = 0; i < filter.w; i ++) {
-      for (int j = 0; j < filter.h; j ++) {
-        set_pixel(filter, i, j, 0, a[cnt++]);
+    for (int i = 0; i < filter.h; i ++) {
+      for (int j = 0; j < filter.w; j ++) {
+        set_pixel(filter, j, i, 0, a[cnt++]);
       }
     }
     return filter;
@@ -406,7 +406,7 @@ image *sobel_image(image im)
         float x = get_pixel(gx_im, j, i, 0);
         float y = get_pixel(gy_im, j, i, 0);
         set_pixel(mag, j, i, 0, sqrt(x*x + y*y));
-        set_pixel(dir, j, i, 0, atan2(x, y));
+        set_pixel(dir, j, i, 0, atan2(y, x));
       }
     }
     sobelimg[0] = mag;

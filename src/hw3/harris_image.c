@@ -84,7 +84,17 @@ void mark_corners(image im, descriptor *d, int n)
 image make_1d_gaussian(float sigma)
 {
     // TODO: make separable 1d Gaussian.
-    return make_image(1,1,1);
+    int w = 6 * sigma;
+    w = w % 2 ? w : w + 1;
+    image filter = make_image(w, 1, 1);
+    for (int i = 0; i < w; i ++) {
+      float x = i - w/2;
+      float a = 1.0 / (sqrt(TWOPI) * sigma);
+      float b = exp(-(x*x)/(2*sigma*sigma));
+      set_pixel(filter, i, 0, 0, a*b);
+    }
+    l1_normalize(filter);
+    return filter;
 }
 
 // Smooths an image using separable Gaussian filter.
@@ -94,7 +104,19 @@ image make_1d_gaussian(float sigma)
 image smooth_image(image im, float sigma)
 {
     // TODO: use two convolutions with 1d gaussian filter.
-    return copy_image(im);
+    image S = make_image(im.w, im.h, 3);
+    image gau_1d = make_1d_gaussian(sigma);
+    image transpose_gau = make_image(gau_1d.h, gau_1d.w, 1);
+    for (int i = 0; i < gau_1d.w; i ++) {
+        set_pixel(transpose_gau, 0, i, 0, get_pixel(gau_1d, i, 0, 0));
+    }
+    S = convolve_image(im, transpose_gau, 1);
+    S = convolve_image(S, gau_1d, 1);
+
+    free_image(gau_1d);
+    free_image(transpose_gau);
+
+    return S;
 }
 
 // Calculate the structure matrix of an image.
@@ -106,6 +128,32 @@ image structure_matrix(image im, float sigma)
 {
     image S = make_image(im.w, im.h, 3);
     // TODO: calculate structure matrix for im.
+    image gx = make_gx_filter();
+    image gy = make_gy_filter();
+    image Ix = convolve_image(im, gx, 0);
+    image Iy = convolve_image(im, gy, 0);
+    for (int i = 0; i < im.h; i ++) {
+      for (int j = 0; j < im.w; j ++) {
+        float ix = get_pixel(Ix, j, i, 0);
+        float iy = get_pixel(Iy, j, i, 0);
+        set_pixel(S, j, i, 0, ix * ix);
+        set_pixel(S, j, i, 1, iy * iy);
+        set_pixel(S, j, i, 2, ix * iy);
+      }
+    }
+    /* Ordinary way
+    image gau = make_gaussian_filter(sigma);
+    S = convolve_image(S, gau, 1);
+    free_image(gau);
+    */
+
+    S = smooth_image(S, sigma);
+
+    free_image(gx);
+    free_image(gy);
+    free_image(Ix);
+    free_image(Iy);
+
     return S;
 }
 
@@ -117,6 +165,17 @@ image cornerness_response(image S)
     image R = make_image(S.w, S.h, 1);
     // TODO: fill in R, "cornerness" for each pixel using the structure matrix.
     // We'll use formulation det(S) - alpha * trace(S)^2, alpha = .06.
+    float alpha = .06;
+    for (int i = 0; i < S.h; i ++) {
+      for (int j = 0; j < S.w; j ++) {
+        float ixx = get_pixel(S, j, i, 0);
+        float iyy = get_pixel(S, j, i, 1);
+        float ixy = get_pixel(S, j, i, 2);
+        float det = ixx * iyy - ixy * ixy;
+        float trace = ixx + iyy;
+        set_pixel(R, j, i, 0, det - alpha * trace * trace);
+      }
+    }
     return R;
 }
 
@@ -132,6 +191,17 @@ image nms_image(image im, int w)
     //     for neighbors within w:
     //         if neighbor response greater than pixel response:
     //             set response to be very low (I use -999999 [why not 0??])
+    for (int i = 0; i < im.h; i ++) {
+      for (int j = 0; j < im.w; j ++) {
+        float val = get_pixel(im, j, i, 0);
+        for (int dx = -w; dx <= w; dx ++) {
+          for (int dy = -w; dy <= w; dy ++) {
+            float chk = get_pixel(im, j+dx, i+dy, 0);
+            if (chk > get_pixel(im, j, i, 0)) set_pixel(r, j, i, 0, -1e7);
+          }
+        }
+      }
+    }
     return r;
 }
 
@@ -155,13 +225,25 @@ descriptor *harris_corner_detector(image im, float sigma, float thresh, int nms,
 
 
     //TODO: count number of responses over threshold
-    int count = 1; // change this
+    int count = 0;
+    for (int i = 0; i < Rnms.c; i ++) {
+      for (int j = 0; j < Rnms.h; j ++) {
+        for (int k = 0; k < Rnms.w; k ++) {
+            if (get_pixel(Rnms, k, j, i) > thresh) count ++;
+        }
+      }
+    }
 
     
     *n = count; // <- set *n equal to number of corners in image.
     descriptor *d = calloc(count, sizeof(descriptor));
     //TODO: fill in array *d with descriptors of corners, use describe_index.
-
+    int len = Rnms.c * Rnms.h * Rnms.w;
+    for (int i = 0, j = 0; i < len; i ++) {
+      if (Rnms.data[i] > thresh) {
+        d[j++] = describe_index(im, i);
+      }
+    }
 
     free_image(S);
     free_image(R);
