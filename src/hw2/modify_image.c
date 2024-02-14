@@ -61,6 +61,7 @@ float bilinear_interpolate(image im, float x, float y, int c)
       a floating column value "x", row value "y" and integer channel "c".
       It interpolates and returns the interpolated value.
     ************************************************************************/
+    /*
     int low_x = floor(x);
     int low_y = floor(y);
     int up_x = ceil(x);
@@ -75,6 +76,19 @@ float bilinear_interpolate(image im, float x, float y, int c)
     float v4 = get_pixel(im, up_x, up_y, c);
 
     return v1 * a1 + v2 * a2 + v3 * a3 + v4 * a4;
+    */
+   float v1, v2, v3, v4, q1, q2, q;
+    v1 = get_pixel(im, floorf(x), floorf(y), c);
+    v2 = get_pixel(im, ceilf(x), floorf(y), c);
+    v3 = get_pixel(im, floorf(x), ceilf(y), c);
+    v4 = get_pixel(im, ceilf(x), ceilf(y), c);
+    q1 = v2 * (x - floorf(x)) + v1 * (ceilf(x) - x);
+    q1 = floorf(x) == ceilf(x) ? v1 : q1;
+    q2 = v4 * (x - floorf(x)) + v3 * (ceilf(x) - x);
+    q2 = floorf(x) == ceilf(x) ? v3 : q2;
+    q = q2 * (y - floorf(y)) + q1 * (ceilf(y) - y);
+    q = floorf(y) == ceilf(y) ? q1 : q;
+    return q;
 }
 
 image bilinear_resize(image im, int w, int h)
